@@ -170,27 +170,24 @@ async def run():
         est_y, est_vy = est_state[2][0], est_state[3][0]
         
         # --- Parallax Correction ---
-        CAMERA_OFFSET_X = 0.10   # Metri (Camera spostata in AVANTI rispetto al centro)
-        CAMERA_OFFSET_Z = 0.05   # Metri (Camera più BASSA del centro del drone)
-        FOCAL_LENGTH    = 1100.0 # Pixel (Standard per HD 720p/1080p in Gazebo. Se 640x480 usa ~550)
+        CAMERA_OFFSET_X = 0.10   # Camera forward of COM 
+        CAMERA_OFFSET_Z = 0.05   # Camera lower than COM 
+        FOCAL_LENGTH    = 1100.0 # Pixel ( 720p/1080p. Se 640x480 usa ~550)
 
-        # 1. Calcoliamo la quota reale della camera (non del drone)
-        # Se la camera è appesa sotto, è più vicina a terra!
-        # Questo è CRUCIALE negli ultimi 50cm.
+        # 1. Calculo Altitudine Effettiva della Camera
+        # If the camera is below the COM, the effective altitude for parallax is above, it's lower.
         cam_alt = max(current_alt - CAMERA_OFFSET_Z, 0.1) 
         
-        # 2. Calcolo Offset Pixel atteso
-        # Formula: Pixel = (Metri * Focale) / Quota
+        # 2. Offset pixel to meter conversion (parallax)
         expected_pixel_offset = (CAMERA_OFFSET_X * FOCAL_LENGTH) / cam_alt
         
-        # 3. Applicazione
-        # Se la camera è avanti (X+), vede il target "indietro" (Y+ nell'immagine).
-        # Dobbiamo togliere questo offset "naturale" per avere 0 errore al centro.
+        # 3. Application
+        #If the camera is forward of the COM, the target appears shifted in the opposite direction of the movement, so we subtract the expected pixel offset from the estimated position to get a more accurate error for control.
         est_y = est_y - expected_pixel_offset
-        # --- B. MACCHINA A STATI ---
+        # --- B. CONTROLLO ---
         cmd_x, cmd_y, cmd_z = 0.0, 0.0, 0.0
         
-        # STATO 1: SALITA
+        # STATO 1: Takeoff
         if not cruise_altitude_reached:
             if current_alt >= TARGET_ALTITUDE - 0.5:
                 print("--- QUOTA RAGGIUNTA ---")
@@ -202,19 +199,19 @@ async def run():
                      cmd_y = (est_x * KP_X)
                      cmd_x = -((est_y * KP_Y))
 
-        # STATO 2: DISCESA & RICERCA
+        # STATO 2: descent + search
         else:
             # Check se abbiamo il target ORA
             target_visible = (measurement is not None)
-            
-            # --- 2A. TARGET VISIBILE: ATTACCO ---
+
+            # --- 2A. Target Tracking ---
             if target_visible:
-                # Reset Ricerca
+                # Reset Research
                 if search_active:
-                    print(">>> TARGET AGGANCIATO! STOP RICERCA <<<")
+                    print(">>> TARGET LOCKED! STOP RESEARCH <<<")
                     search_active = False
                     search_leg_index = 0
-                    # Reset Integrale al ritrovamento per evitare scatti
+                    # Reset Integral on finding to avoid jerks
                     integ_x, integ_y = 0.0, 0.0
                 last_seen_time = time.time()
             #Damper is the scale of the calculated force, 
@@ -229,11 +226,11 @@ async def run():
 
                 # --- CALCOLO PID COMPLETO (P + I + D + FF) ---
                 
-                # --- GESTIONE INTEGRALE (FREEZE LOGIC) ---
+                # --- Cutting Integral last meter (FREEZE LOGIC) ---
                 INTEGRAL_CUTOFF_HEIGHT = 2.0
                 
                 if current_alt > INTEGRAL_CUTOFF_HEIGHT:
-                    # FASE DI VOLO: Accumula e impara il vento
+                    # FFlying above cutoff, integral is active
                     integ_x += est_x * DT
                     integ_y += est_y * DT
                     
@@ -241,27 +238,25 @@ async def run():
                     integ_x = np.clip(integ_x, -integ_max, integ_max)
                     integ_y = np.clip(integ_y, -integ_max, integ_max)
                 else:
-                    # FASE DI ATTERRAGGIO (< 3m): FREEZE!
-                    # Manteniamo il valore attuale per contrastare il vento laterale
-                    # senza reagire alle oscillazioni dell'ultimo secondo.
+                    
                     pass
                 # 3. Feed-Forward Gain (Stima Velocità)
                 ff_gain = 0.003 
 
-                # 4. Somma Totale
-                # Asse Y (Roll) controlla errore X pixel
+                # 4. Total PID
+                # Asse Y (Roll)
                 cmd_y = (est_x * KP_X * dampener) + \
                         (est_vx * KD_X * dampener) + \
                         (integ_x * KI) + \
                         (est_vx * ff_gain)
                 
-                # Asse X (Pitch) controlla errore Y pixel (invertito)
+                # Asse X (Pitch)
                 cmd_x = -((est_y * KP_Y * dampener) + \
                           (est_vy * KD_Y * dampener) + \
                           (integ_y * KI) + \
                           (est_vy * (ff_gain)))
                 
-                # --- FINE CALCOLO PID ---
+                # --- END PID ---
 #In the landing zone we cannot assure all the pixel as before, so we will set a treshhold
                 
                 # Clamping
@@ -276,7 +271,6 @@ async def run():
                     # BLIND DROP CHECK (< 1.2m)
                     #if current_alt < 1.50:
                     #   cmd_z = 0.1 # Drop deciso
-                      #  # Azzera integrale in fase finale per evitare overshoot al suolo
                       #  integ_x, integ_y = 0.0, 0.0 
                        # cmd_x, cmd_y = 0.0, 0.0 # Ignora PID, vai giù dritto
                     #else:
@@ -286,7 +280,7 @@ async def run():
                     # Hovering correttivo
                     cmd_z = 0.0 
 
-            # --- 2B. TARGET PERSO: RICOGNIZIONE ---
+            # --- 2B. TARGET LOST:recognition ---
             else:
                 # 1. Reset immediato della memoria Integrale
                 # Se non vedi il target, non devi spingere verso una direzione vecchia!
