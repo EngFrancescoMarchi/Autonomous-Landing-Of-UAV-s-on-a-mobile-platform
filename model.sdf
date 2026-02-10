@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sdf version='1.9'>
+  <model name='x500_vision'>
+    <include merge='true'>
+      <uri>x500</uri>
+    </include>
+    <plugin filename="libgz-sim-linearbatteryplugin-system.so"
+      name="gz::sim::systems::LinearBatteryPlugin">
+      <battery_name>linear_battery</battery_name>
+      <voltage>16.8</voltage>
+      <open_circuit_voltage_constant_coef>16.8</open_circuit_voltage_constant_coef>
+      <open_circuit_voltage_linear_coef>-3.0</open_circuit_voltage_linear_coef>
+      
+      <initial_charge>4.0</initial_charge>
+      <capacity>4.0</capacity>
+      
+      <resistance>0.05</resistance>
+      
+      <smooth_current_tau>1.9499</smooth_current_tau>
+      <power_load>6.6</power_load> <start_on_motion>true</start_on_motion>
+    </plugin>
+    <plugin
+      filename="gz-sim-odometry-publisher-system"
+      name="gz::sim::systems::OdometryPublisher">
+      <dimensions>3</dimensions>
+    </plugin>
+  <link name="camera_link">
+      <pose>0.12 0 0.05 0 0 0</pose> <inertial>
+        <mass>0.05</mass>
+        <inertia>
+          <ixx>0.0001</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>0.0001</iyy>
+          <iyz>0</iyz>
+          <izz>0.0001</izz>
+        </inertia>
+      </inertial>
+      <visual name="camera_visual">
+        <geometry>
+          <box>
+            <size>0.02 0.02 0.02</size>
+          </box>
+        </geometry>
+        <material>
+          <ambient>1 0 0 1</ambient> <diffuse>1 0 0 1</diffuse>
+        </material>
+      </visual>
+      <sensor name="camera" type="camera">
+        <pose>0.12 0 -0.05 0 1.5708 0</pose>
+        <camera>
+          <horizontal_fov>1.047</horizontal_fov>
+          <image>
+            <width>1280</width>
+            <height>720</height>
+          </image>
+          <clip>
+            <near>0.1</near>
+            <far>100</far>
+          </clip>
+        </camera>
+        <always_on>1</always_on>
+        <update_rate>30</update_rate>
+        <visualize>true</visualize>
+        <topic>camera</topic> </sensor>
+    </link>
+
+    <joint name="camera_joint" type="fixed">
+      <parent>base_link</parent>
+      <child>camera_link</child>
+    </joint>
+  </model>
+</sdf>
