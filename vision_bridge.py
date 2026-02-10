@@ -3,7 +3,6 @@ import cv2
 import numpy as np
 import time
 
-# Import librerie Gazebo
 try:
     from gz.transport13 import Node
     from gz.msgs10.image_pb2 import Image
@@ -13,42 +12,37 @@ except ImportError:
 
 TOPIC_NAME = "/camera"
 
-# --- CONFIGURAZIONE ARUCO ---
-# Usiamo il dizionario standard
 ARUCO_DICT_TYPE = cv2.aruco.DICT_4X4_50
 aruco_dict = cv2.aruco.getPredefinedDictionary(ARUCO_DICT_TYPE)
-# Rimuoviamo i parametri custom per evitare crash sulla versione apt
-# aruco_params = cv2.aruco.DetectorParameters() 
 
 def cb(msg):
     try:
-        # 1. Decodifica Immagine
+        # 1.Image Conversion
         width = msg.width
         height = msg.height
         
-        # Copia profonda dei dati per evitare problemi di puntatori
+        # Copy of files
         img_buf = np.frombuffer(msg.data, dtype=np.uint8)
         
         # Reshape
         image = img_buf.reshape((height, width, 3))
         
-        # 2. SANITIZZAZIONE MEMORIA (Il Fix per il SIGSEGV)
-        # Convertiamo in BGR e forziamo la contiguità in memoria
+        # 2. Conversion from RGB to BGR (OpenCV standard)
         frame = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
         frame = np.ascontiguousarray(frame)
         
-        # Scala di grigi sicura
+        # Safe grayscale conversion
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         gray = np.ascontiguousarray(gray) # DOPPIA SICUREZZA
         
-        # 3. Detection (Senza parametri opzionali per ora)
+        # 3. Detection of ArUco markers
         corners, ids, rejected = cv2.aruco.detectMarkers(gray, aruco_dict)
 
-        # 4. Disegna i risultati
+        # 4. Drawing and error calculation
         if ids is not None:
             cv2.aruco.drawDetectedMarkers(frame, corners, ids)
             
-            # Prendi il primo marker
+            # First marker
             c = corners[0][0] 
             center_x = int((c[0][0] + c[2][0]) / 2)
             center_y = int((c[0][1] + c[2][1]) / 2)
@@ -69,7 +63,6 @@ def cb(msg):
 
         cv2.imshow("France Thesis - ArUco Tracking", frame)
         
-        # Check per chiusura finestra
         if cv2.waitKey(1) & 0xFF == ord('q'):
             sys.exit(0)
         
