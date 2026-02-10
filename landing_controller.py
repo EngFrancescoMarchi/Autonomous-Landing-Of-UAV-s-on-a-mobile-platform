@@ -15,16 +15,16 @@ except ImportError:
     print("⚠️ ERRORE CRITICO: Librerie Gazebo non trovate. Fai 'source' prima di lanciare!")
     sys.exit(1)
 
-FREQ = 30.0             
+FREQ = 30.0             #upadating at 30Hz for better performance with HD stream
 DT = 1.0 / FREQ        
-TARGET_ALTITUDE = 10.0   # Quota di crociera (metri)
-ALIGN_THRESHOLD = 80    # Pixel tolleranza per iniziare discesa
+TARGET_ALTITUDE = 10.0   # Target altitude for initial hover before descent (meters)
+ALIGN_THRESHOLD = 80    # Pixel tolerance to start descent
 
 # Camera Params (gz_x500_vision standard + HD)
 CAM_W, CAM_H = 1280, 720
 CENTER_X, CENTER_Y = CAM_W // 2, CAM_H // 2
 
-# --- CLASSE ZOH (BUFFER CONDIVISO) ---
+# --- ZOH as buffer ---
 class SharedBuffer:
     def __init__(self):
         self.measurement = None 
@@ -73,7 +73,6 @@ def vision_callback(msg):
         img_buf = np.frombuffer(msg.data, dtype=np.uint8)
         img = img_buf.reshape((msg.height, msg.width, 3))
         
-        # Opzionale: Rimuovi conversioni colore se vuoi massimizzare FPS
         frame_display = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         gray = cv2.cvtColor(frame_display, cv2.COLOR_BGR2GRAY)
         
@@ -96,13 +95,13 @@ def vision_callback(msg):
                 cy = int(np.mean(c[:, 1])) - CENTER_Y
                 shared_buffer.write(cx, cy) 
                 
-        # DISABILITATO PER PREVENIRE CORE DUMP IN GAZEBO TRANSPORT
+        # Opening The window here to avoid issues with Gazebo's rendering loop and OpenCV's imshow
         cv2.imshow("Drone View", frame_display)
         cv2.waitKey(1)
     except Exception:
         pass
 
-# --- TELEMETRIA BACKGROUND ---
+# --- TELEMETRY BACKGROUND ---
 current_alt = 0.0
 async def telemetry_loop(drone):
     global current_alt
@@ -132,7 +131,7 @@ async def run():
     
     cruise_altitude_reached = False 
     
-    # --- VARIABILI RICOGNIZIONE (SEARCH MODE) ---
+    # --- Loop over the place to find target (SEARCH MODE) ---
     search_active = False
     last_seen_time = time.time()
     search_start_time = 0
@@ -140,7 +139,7 @@ async def run():
     search_leg_duration = 1.5 
     base_search_speed = 1.0  
     
-    # --- VARIABILI INTEGRALI ---
+    # --- INT ---
     integ_x = 0.0
     integ_y = 0.0
     integ_max = 1000.0 # Anti-Windup Limit
@@ -170,8 +169,7 @@ async def run():
         est_x, est_vx = est_state[0][0], est_state[1][0]
         est_y, est_vy = est_state[2][0], est_state[3][0]
         
-        # --- CORREZIONE PARALLASSE (GEOMETRICA) ---
-        # Configurazione fisica del tuo drone:
+        # --- Parallax Correction ---
         CAMERA_OFFSET_X = 0.10   # Metri (Camera spostata in AVANTI rispetto al centro)
         CAMERA_OFFSET_Z = 0.05   # Metri (Camera più BASSA del centro del drone)
         FOCAL_LENGTH    = 1100.0 # Pixel (Standard per HD 720p/1080p in Gazebo. Se 640x480 usa ~550)
