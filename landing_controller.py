@@ -8,7 +8,6 @@ from gz.msgs10.entity_factory_pb2 import EntityFactory
 from gz.msgs10.pose_pb2 import Pose
 from mavsdk.offboard import (OffboardError, VelocityBodyYawspeed, PositionNedYaw)
 
-# --- IMPORT GAZEBO ---
 try:
     from gz.transport13 import Node
     from gz.msgs10.image_pb2 import Image
@@ -16,9 +15,8 @@ except ImportError:
     print("⚠️ ERRORE CRITICO: Librerie Gazebo non trovate. Fai 'source' prima di lanciare!")
     sys.exit(1)
 
-# --- CONFIGURAZIONE ---
 FREQ = 30.0             # Hz Loop Controllo
-DT = 1.0 / FREQ         # 0.033s
+DT = 1.0 / FREQ        
 TARGET_ALTITUDE = 10.0   # Quota di crociera (metri)
 ALIGN_THRESHOLD = 80    # Pixel tolleranza per iniziare discesa
 
