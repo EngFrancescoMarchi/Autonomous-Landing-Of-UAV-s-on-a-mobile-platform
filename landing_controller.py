@@ -9,6 +9,7 @@ from gz.msgs10.pose_pb2 import Pose
 from mavsdk.offboard import (OffboardError, VelocityBodyYawspeed, PositionNedYaw)
 import matplotlib.pyplot as plt
 import pandas as pd # Se vuoi salvare in Excel/CSV
+from plot_results import plot_results
 
 try:
     from gz.transport13 import Node
@@ -109,11 +110,10 @@ async def telemetry_loop(drone):
     global current_alt
     async for pos in drone.telemetry.position():
         current_alt = pos.relative_altitude_m
-
+log_data = {}
 # --- MAIN LOOP ---
 async def run():
-    global current_alt
-    
+    global current_alt, log_data
     # Setup
     drone = System()
     await drone.connect(system_address="udp://:14540")
@@ -197,6 +197,7 @@ async def run():
         #If the camera is forward of the COM, the target appears shifted in the opposite direction of the movement, so we subtract the expected pixel offset from the estimated position to get a more accurate error for control.
         est_x = est_x + expected_pixel_offset
         est_y = est_y  # No correction needed on Y for forward offset
+        
         # --- B. CONTROLLO ---
         cmd_x, cmd_y, cmd_z = 0.0, 0.0, 0.0
         
@@ -232,7 +233,7 @@ async def run():
                 # Gain Scheduling
                 if current_alt < 2.0:
                     dampener = 0.15
-                    max_speed_xy = 0.3 
+                    max_speed_xy = 0.25 
                 else:
                     dampener = 1.0
                     max_speed_xy = 1.1
@@ -254,7 +255,12 @@ async def run():
                     
                     pass
                 # 3. Feed-Forward Gain (Stima Velocità)
-                ff_gain = 0.0035 
+                if abs(est_x) < 0.09 or abs(est_y) < 0.09:
+                    ff_gain = 0.0  # Se siamo molto vicini, disabiliti
+                if current_alt < 2.0:
+                    ff_gain = 0.0005  # Guadagno più conservativo in discesa
+                else:
+                    ff_gain = 0.0035 
 
                 # 4. Total PID
                 # Asse Y (Roll)
@@ -371,8 +377,21 @@ if __name__ == "__main__":
     try:
         loop.run_until_complete(run())
     except KeyboardInterrupt:
-        print("Interrotto dall'utente")
+        print("\n!!! Interrotto da France (utente) !!!")
+    except Exception as e:
+        print(f"Errore imprevisto: {e}")
     finally:
-        # SE HAI USATO UNA VARIABILE GLOBALE PER log_data:
-        plot_results(log_data) 
+        # Ora controlliamo se log_data ha effettivamente dei dati prima di plottare
+        if 'time' in log_data and len(log_data['time']) > 0:
+            print(f"Salvataggio dati ({len(log_data['time'])} punti)...")
+            plot_results(log_data)
+        else:
+            print("Nessun dato registrato da plottare.")
+            
         print("Pulizia e chiusura...")
+        # Questo forza la chiusura dei thread appesi di MAVSDK/OpenCV
+        try:
+            # Opzionale: pulizia esplicita se necessario
+            pass 
+        except:
+            pass

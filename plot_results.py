@@ -1,3 +1,5 @@
+import matplotlib.pyplot as plt
+import numpy as np
 def plot_results(data):
     print(">>> GENERAZIONE GRAFICI IN CORSO... <<<")
     
@@ -16,7 +18,7 @@ def plot_results(data):
     ax2.plot(data['time'], data['pos_x_est'], 'r-', label='Error X (Est)')
     ax2.plot(data['time'], data['pos_y_est'], 'g-', label='Error Y (Est)')
     ax2.axhline(y=0.0, color='k', linestyle='--', linewidth=1)
-    ax2.set_ylabel('Position Error [m]') # O pixel se non hai convertito
+    ax2.set_ylabel('Position Error [Pixels]') 
     ax2.set_title('Tracking Error (Kalman Estimate)')
     ax2.grid(True)
     ax2.legend()
