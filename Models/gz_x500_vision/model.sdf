@@ -7,7 +7,7 @@
     <plugin filename="libgz-sim-linearbatteryplugin-system.so"
       name="gz::sim::systems::LinearBatteryPlugin">
       <battery_name>linear_battery</battery_name>
-      <voltage>16.8</voltage>
+      <voltage>14.7</voltage>
       <open_circuit_voltage_constant_coef>16.8</open_circuit_voltage_constant_coef>
       <open_circuit_voltage_linear_coef>-3.0</open_circuit_voltage_linear_coef>
       
@@ -25,7 +25,7 @@
       <dimensions>3</dimensions>
     </plugin>
     <link name="camera_link">
-      <pose>-0.05 0 -0.02 0 0 0</pose> 
+      <pose>-0.04 0 -0.16 0 0 0</pose> 
 
       <inertial>
         <mass>0.05</mass>

@@ -183,12 +183,12 @@ async def run():
         
         # --- Parallax Correction ---
         CAMERA_OFFSET_X = -0.05   # Camera forward of COM 
-        CAMERA_OFFSET_Z = 0.02   # Camera lower than COM 
+        CAMERA_OFFSET_Z = 0.15   # Camera lower than COM 
         FOCAL_LENGTH    = 1100.0 # Pixel ( 720p/1080p. Se 640x480 usa ~550)
 
         # 1. Calculo Altitudine Effettiva della Camera
         # If the camera is below the COM, the effective altitude for parallax is above, it's lower.
-        cam_alt = max(current_alt - CAMERA_OFFSET_Z, 0.1) 
+        cam_alt = max(current_alt - CAMERA_OFFSET_Z, 0.7) 
         
         # 2. Offset pixel to meter conversion (parallax)
         expected_pixel_offset = (CAMERA_OFFSET_X * FOCAL_LENGTH) / cam_alt
@@ -231,7 +231,7 @@ async def run():
             #Damper is the scale of the calculated force, 
             # in this case we will use 40% of calculated, avoid shaking
                 # Gain Scheduling
-                if current_alt < 2.0:
+                if current_alt < 0.7:
                     dampener = 0.15
                     max_speed_xy = 0.3 
                 else:
@@ -241,7 +241,7 @@ async def run():
                 # --- CALCOLO PID COMPLETO (P + I + D + FF) ---
                 
                 # --- Cutting Integral last meter (FREEZE LOGIC) ---
-                INTEGRAL_CUTOFF_HEIGHT = 2.0
+                INTEGRAL_CUTOFF_HEIGHT = 0.8
                 
                 if current_alt > INTEGRAL_CUTOFF_HEIGHT:
                     # FFlying above cutoff, integral is active
@@ -257,7 +257,7 @@ async def run():
                 # 3. Feed-Forward Gain (Stima Velocità)
                 if abs(est_x) < 0.09 or abs(est_y) < 0.09:
                     ff_gain = 0.0  # Se siamo molto vicini, disabiliti
-                if current_alt < 2.0:
+                if current_alt < 0.8:
                     ff_gain = 0.0005  # Guadagno più conservativo in discesa
                 else:
                     ff_gain = 0.0035 
@@ -283,7 +283,7 @@ async def run():
                 cmd_y = np.clip(cmd_y, -max_speed_xy, max_speed_xy)
 
                 # Gestione Discesa
-                current_align_thresh = ALIGN_THRESHOLD if current_alt > 2.5 else (ALIGN_THRESHOLD * 2.5)
+                current_align_thresh = ALIGN_THRESHOLD if current_alt > 1.2 else (ALIGN_THRESHOLD * 2.5)
                 is_aligned = (abs(est_x) < current_align_thresh and abs(est_y) < current_align_thresh)
                 
                 # --- LOGGING (Dentro il While) ---
@@ -302,7 +302,7 @@ async def run():
                       #  integ_x, integ_y = 0.0, 0.0 
                        # cmd_x, cmd_y = 0.0, 0.0 # Ignora PID, vai giù dritto
                     #else:
-                    final_descent_speed = 0.15 if current_alt < 2.0 else 0.35
+                    final_descent_speed = 0.15 if current_alt < 0.9 else 0.35
                     cmd_z = final_descent_speed
                 else:
                     # Hovering correttivo
@@ -356,7 +356,7 @@ async def run():
                         cmd_z = 0.0  # Maintain altitude if already high
 
         # --- C. TOUCHDOWN ---
-        if current_alt < 1.37 and cruise_altitude_reached:
+        if current_alt < 0.37 and cruise_altitude_reached:
              print("--- TOUCHDOWN ---")
              await drone.offboard.set_velocity_body(VelocityBodyYawspeed(0,0,0,0))
              try: await drone.offboard.stop()
@@ -377,17 +377,21 @@ if __name__ == "__main__":
     try:
         loop.run_until_complete(run())
     except KeyboardInterrupt:
-        print("\n!!! Aborted by User !!!")
+        print("\n!!! Interrotto da France (utente) !!!")
     except Exception as e:
         print(f"Errore imprevisto: {e}")
     finally:
         # Ora controlliamo se log_data ha effettivamente dei dati prima di plottare
         if 'time' in log_data and len(log_data['time']) > 0:
-            print(f"Data save({len(log_data['time'])} points)...")
+            print(f"Salvataggio dati ({len(log_data['time'])} punti)...")
             plot_results(log_data)
         else:
             print("Nessun dato registrato da plottare.")
             
-        print("Killing...")
+        print("Pulizia e chiusura...")
         # Questo forza la chiusura dei thread appesi di MAVSDK/OpenCV
-        sys.exit(0)
+        try:
+            # Opzionale: pulizia esplicita se necessario
+            pass 
+        except:
+            pass

@@ -5,7 +5,7 @@
     <self_collide>true</self_collide>
 
     <link name="platform_link">
-      <pose>0 0 1.0 0 0 0</pose>
+      <pose>0 0 0.1 0 0 0</pose>
       
       <gravity>false</gravity>
       
@@ -17,7 +17,7 @@
       </inertial>
       <visual name="orange_base">
           <geometry>
-            <box><size>0.74 0.75 0.04</size></box>
+            <box><size>0.74 0.75 0.01</size></box>
           </geometry>
           <material>
             <ambient>1.0 0.4 0.0 1.0</ambient> 
@@ -28,7 +28,7 @@
       <visual name="platform_visual">
         <geometry>
           <box>
-            <size>0.60 0.60 0.05</size>
+            <size>0.55 0.55 0.02</size>
           </box>
         </geometry>
         <material>
@@ -46,7 +46,7 @@
       <collision name="platform_collision">
         <geometry>
           <box>
-            <size>0.74 0.74 0.05</size>
+            <size>0.74 0.74 0.02</size>
           </box>
         </geometry>
         <surface>
